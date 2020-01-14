@@ -46,7 +46,6 @@ for pet in pet_urls[:10]:
     print(breeds)
     try:
         urlbreed =  first_part.find_elements_by_xpath('//span[@data-test="Pet_Breeds"]/a')
-        print(len(urlbreed))
         for a in urlbreed:
             breed_text = a.text
             if breed_text not in breeds:
@@ -65,8 +64,6 @@ for pet in pet_urls[:10]:
         print('no color')
         color = []
 
-    print(age_group, color)
-
     try:
         sex = first_part.find_element_by_xpath('./ul[@aria-label="Pet physical characteristics"]//span[@data-test="Pet_Sex"]').text
         print(sex)
@@ -81,15 +78,36 @@ for pet in pet_urls[:10]:
         print('no size')
         size = []
 
+    print(age_group, color, sex, size)
 
+    second_part = driver.find_element_by_xpath('//div[@data-test="Pet_About_Section"]')
+    
+    ## get every dt tag - which are the labels for the dd tags
+    dts = second_part.find_elements_by_xpath('.//dt')
+    dt_texts = [dt.text for dt in dts]
+    ## the dd tags contain the information for each dt label
+    dds = second_part.find_elements_by_xpath('.//dd')
+    dd_texts = [dd.text for dd in dds]
+
+    print(dt_texts)
+    print(dd_texts)
+
+    good_in_a_home_with, house_trained, prefers_a_home_without, adoption_fee, health = [], [], [], [], []
+    for i, detail in enumerate(dt_texts):
+        detail = '_'.join('_'.join(detail.split()).split('-')).lower()  ## var names need to be one word without hyphens
+        exec(f'{detail} = dd_texts[i]')
+        print(detail)
+
+    print(good_in_a_home_with, house_trained, prefers_a_home_without, adoption_fee, health)    
+ 
+    try:
+        story = driver.find_element_by_xpath('//div[@data-test="Pet_Story_Section"]//div[@class="u-vr4x"]').text
+        story = story.replace('\n\n',' ')
+    except:
+        story = []
+    print(len(story))
+    print(story)    
 #    break
-
-#location
-#house_trained
-#health
-#good_in_a_home_with
-#prefers_a_home_without
-#adoption_fee
 #about_me
 #shelter
 #address
