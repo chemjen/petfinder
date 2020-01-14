@@ -1,6 +1,10 @@
 from selenium import webdriver
-import time
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+#import time
 import re
+import csv
 
 # Windows users need to specify the path to chrome driver you just downloaded.
 # You need to unzip the zipfile first and move the .exe file to any folder you want.
@@ -10,13 +14,11 @@ driver = webdriver.Chrome()
 front_url = "https://www.petfinder.com/search/dogs-for-adoption/us/ny/new-york-city/"
 
 driver.get(front_url)
-
-time.sleep(2)
-# find dog urls
-pets = driver.find_elements_by_xpath('//a[@class="petCard-link"]')
+wait_pets = WebDriverWait(driver, 10)
+pets = wait_pets.until(EC.presence_of_all_elements_located((By.XPATH,
+					'//a[@class="petCard-link"]')))
 
 pet_urls = [pet.get_attribute('href') for pet in pets]
-print(len(pet_urls))
 
 num_pages = driver.find_element_by_xpath('//*[@id="page-select_List_Box_Btn"]/div/div[1]').text
 num_pages = int(num_pages.split('/')[1])
@@ -24,26 +26,31 @@ num_pages = int(num_pages.split('/')[1])
 
 page_urls = [front_url + f"?page=%{page}" for page in range(2, num_pages + 1)] 
 
-#for page in page_urls:
-#    driver.get(page)
-#    time.sleep(10)
-#    pets = driver.find_elements_by_xpath('//a[@class="petCard-link"]')
-#    urls_temp = [pet.get_attribute('href') for pet in pets]
-#    pet_urls.extend(urls_temp)
-#    print(len(pet_urls))
-#    break
+for page in page_urls:
+    driver.get(page)
+    wait_pets = WebDriverWait(driver, 10)
+    pets = wait_pets.until(EC.presence_of_all_elements_located((By.XPATH,
+					'//a[@class="petCard-link"]')))
+    urls_temp = [pet.get_attribute('href') for pet in pets]
+    pet_urls.extend(urls_temp)
+    break
 
-i = 0
-for pet in pet_urls[:20]:
-    driver.get(pet)
-    time.sleep(5)
+csv_file = open('dogs_nyc.csv', 'w', encoding='utf-8', newline='')
+writer = csv.writer(csv_file)
+
+for pet in pet_urls:
+    pet_dict = {}
     
-    first_part = driver.find_element_by_xpath('//div[@class="card-section-inner"]')
+    driver.get(pet)
+    
+    wait_first_part = WebDriverWait(driver, 10)
+    first_part = wait_first_part.until(EC.presence_of_all_elements_located((By.XPATH,
+        '//div[@class="card-section-inner"]')))[0]
+    
     name = first_part.find_element_by_xpath('.//span[@data-test="Pet_Name"]').text
-    print(name)
+
     breeds = first_part.find_element_by_xpath('.//span[@data-test="Pet_Breeds"]').text
 
-    print(breeds)
     try:
         urlbreed =  first_part.find_elements_by_xpath('//span[@data-test="Pet_Breeds"]/a')
         for a in urlbreed:
@@ -51,34 +58,26 @@ for pet in pet_urls[:20]:
             if breed_text not in breeds:
                 breeds = breeds + breed_text
     except:
-        print('no urls')
+        breeds = []
 
     try:
         age_group = first_part.find_element_by_xpath('./ul[@aria-label="Pet physical characteristics"]//span[@data-test="Pet_Age"]').text
     except:
-        print('no age group')
-        age_group = []
+        age_group = ''
     try:
         color = first_part.find_element_by_xpath('./ul[@aria-label="Pet physical characteristics"]//span[@data-test="Pet_Primary_Color"]').text
     except:
-        print('no color')
-        color = []
+        color = ''
 
     try:
         sex = first_part.find_element_by_xpath('./ul[@aria-label="Pet physical characteristics"]//span[@data-test="Pet_Sex"]').text
-        print(sex)
     except:
-        print('no sex')
-        sex = []
+        sex = ''
 
     try:
         size = first_part.find_element_by_xpath('./ul[@aria-label="Pet physical characteristics"]//span[@data-test="Pet_Full_Grown_Size"]').text
-        print(size)
     except:
-        print('no size')
-        size = []
-
-    print(age_group, color, sex, size)
+        size = ''
 
     second_part = driver.find_element_by_xpath('//div[@data-test="Pet_About_Section"]')
     
@@ -89,48 +88,54 @@ for pet in pet_urls[:20]:
     dds = second_part.find_elements_by_xpath('.//dd')
     dd_texts = [dd.text for dd in dds]
 
-    print(dt_texts)
-    print(dd_texts)
-
-    good_in_a_home_with, house_trained, prefers_a_home_without, adoption_fee, health = [], [], [], [], []
+    good_in_a_home_with, house_trained, coat_length, prefers_a_home_without, adoption_fee, health = '', '', '', '', '', ''
     for i, detail in enumerate(dt_texts):
         detail = '_'.join('_'.join(detail.split()).split('-')).lower()  ## var names need to be one word without hyphens
         exec(f'{detail} = dd_texts[i]')
-        print(detail)
+#        print(detail)
 
-    print(good_in_a_home_with, house_trained, prefers_a_home_without, adoption_fee, health)    
+#    print(good_in_a_home_with, house_trained, prefers_a_home_without, adoption_fee, health)    
  
     try:
         story = driver.find_element_by_xpath('//div[@data-test="Pet_Story_Section"]//div[@class="u-vr4x"]').text
         story = story.replace('\n\n',' ')
     except:
-        story = []
-    print(len(story))
-    print(story)    
+        story = ''
 
-    shelter_info = driver.find_element_by_xpath('//div[@class="card card_org"]')
-    shelter_name = shelter_info.find_element_by_xpath('//pf-truncate/div').text
-    shelter_address = shelter_info.find_element_by_xpath('//div[@itemprop="address"]').text
-    print(shelter_name)
-    print(shelter_address)
-    shelter_zipcode = re.search('\d\d\d\d\d$', shelter_address)
-    if shelter_zipcode:
-        print(shelter_zipcode.group(0))
+    try:
+        shelter_info = driver.find_element_by_xpath('//div[@class="card card_org"]')
+        shelter_name = shelter_info.find_element_by_xpath('//pf-truncate/div').text
+    except:
+        shelter_name=''
 
+    try:
+        shelter_address = shelter_info.find_element_by_xpath('//div[@itemprop="address"]').text
+        shelter_zipcode = re.search('\d\d\d\d\d$', shelter_address)
+        if shelter_zipcode:
+            shelter_zipcode = shelter_zipcode.group(0)
+        else:
+            shelter_zipcode = ''
+    except: 
+        shelter_address, shelter_zipcode = '', ''
 
+    pet_dict['name'] = name
+    pet_dict['breeds'] = breeds
+    pet_dict['age group'] = age_group
+    pet_dict['color'] = color
+    pet_dict['sex'] = sex
+    pet_dict['size'] = size
+    pet_dict['good in a home with'] = good_in_a_home_with
+    pet_dict['house trained'] = house_trained
+    pet_dict['prefers a home without'] = prefers_a_home_without
+    pet_dict['adoption fee'] = adoption_fee
+    pet_dict['health'] = health
+    pet_dict['story'] = story
+    pet_dict['shelter name'] = shelter_name
+    pet_dict['shelter address'] = shelter_address
+    pet_dict['shelter zipcode'] = shelter_zipcode
+    pet_dict['coat length'] = coat_length
 
-#    print(shelter_info)
-    #break
-
-#    break
-#shelter
-#address
-
-
-#time.sleep(2)
-
-
-#driver.get(urls[2])
+    writer.writerow(pet_dict.values())
 
 driver.close()
 
