@@ -34,7 +34,7 @@ page_urls = [front_url + f"?page=%{page}" for page in range(2, num_pages + 1)]
 #    break
 
 i = 0
-for pet in pet_urls[:10]:
+for pet in pet_urls[:20]:
     driver.get(pet)
     time.sleep(5)
     
@@ -107,8 +107,22 @@ for pet in pet_urls[:10]:
         story = []
     print(len(story))
     print(story)    
+
+    shelter_info = driver.find_element_by_xpath('//div[@class="card card_org"]')
+    shelter_name = shelter_info.find_element_by_xpath('//pf-truncate/div').text
+    shelter_address = shelter_info.find_element_by_xpath('//div[@itemprop="address"]').text
+    print(shelter_name)
+    print(shelter_address)
+    shelter_zipcode = re.search('\d\d\d\d\d$', shelter_address)
+    if shelter_zipcode:
+        print(shelter_zipcode.group(0))
+
+
+
+#    print(shelter_info)
+    #break
+
 #    break
-#about_me
 #shelter
 #address
 
