@@ -2,16 +2,25 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-#import time
+from selenium.webdriver.chrome.options import Options
+import time
 import re
 import csv
+
+animal = 'dogs'
+city= 'new york city'
+state = 'ny'
+city = '-'.join(city.split())
 
 # Windows users need to specify the path to chrome driver you just downloaded.
 # You need to unzip the zipfile first and move the .exe file to any folder you want.
 # driver = webdriver.Chrome(r'path\to\the\chromedriver.exe')
+opts = Options()
+opts.add_argument("user-agent=['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36']")
+
 driver = webdriver.Chrome()
 # Go to the page that we want to scrape
-front_url = "https://www.petfinder.com/search/dogs-for-adoption/us/ny/new-york-city/"
+front_url = f"https://www.petfinder.com/search/{animal}-for-adoption/us/{state}/{city}/"
 
 driver.get(front_url)
 wait_pets = WebDriverWait(driver, 10)
@@ -26,16 +35,24 @@ num_pages = int(num_pages.split('/')[1])
 
 page_urls = [front_url + f"?page=%{page}" for page in range(2, num_pages + 1)] 
 
-for page in page_urls:
-    driver.get(page)
-    wait_pets = WebDriverWait(driver, 10)
-    pets = wait_pets.until(EC.presence_of_all_elements_located((By.XPATH,
-					'//a[@class="petCard-link"]')))
-    urls_temp = [pet.get_attribute('href') for pet in pets]
-    pet_urls.extend(urls_temp)
-    break
+#for page in page_urls:
+#    driver.get(page)
+#    time.sleep(2)
+#    wait_pets = WebDriverWait(driver, 10)
+#    pets = wait_pets.until(EC.presence_of_all_elements_located((By.XPATH,
+#					'//a[@class="petCard-link"]')))
+#    urls_temp = [pet.get_attribute('href') for pet in pets]
+#    pet_urls.extend(urls_temp)
+#    break
 
-csv_file = open('dogs_nyc.csv', 'w', encoding='utf-8', newline='')
+#pickle.dump( pet_urls, open( f"{animal}_{state}_{city}.p", "wb" ) )
+#with open(f'{animal}_{state}_{city}_urls.txt', 'w') as f:
+#    for url in pet_urls:
+#        f.write(url+'\n')
+with open(f'{animal}_{state}_{city}_urls.txt', 'r') as f:
+    pet_urls = [url.strip('\n') for url in f.readlines()]
+
+csv_file = open(f'{animal}_{state}_{city}.csv', 'w', encoding='utf-8', newline='')
 writer = csv.writer(csv_file)
 
 for pet in pet_urls:
@@ -88,7 +105,8 @@ for pet in pet_urls:
     dds = second_part.find_elements_by_xpath('.//dd')
     dd_texts = [dd.text for dd in dds]
 
-    good_in_a_home_with, house_trained, coat_length, prefers_a_home_without, adoption_fee, health = '', '', '', '', '', ''
+    characteristics, adoption_fee, health, coat_length = '', '', '', ''  
+    good_in_a_home_with, prefers_a_home_without, house_trained = '', '', ''
     for i, detail in enumerate(dt_texts):
         detail = '_'.join('_'.join(detail.split()).split('-')).lower()  ## var names need to be one word without hyphens
         exec(f'{detail} = dd_texts[i]')
@@ -118,6 +136,11 @@ for pet in pet_urls:
     except: 
         shelter_address, shelter_zipcode = '', ''
 
+    shelter_email = shelter_info.find_elements_by_xpath('//a[starts-with(@href, "mailto")]')[1].get_attribute('href')
+    shelter_email = shelter_email.split(':')[1]
+#    emails = [x.get_attribute('href') for x in shelter_email]
+#    print(shelter_email)
+
     pet_dict['name'] = name
     pet_dict['breeds'] = breeds
     pet_dict['age group'] = age_group
@@ -129,11 +152,12 @@ for pet in pet_urls:
     pet_dict['prefers a home without'] = prefers_a_home_without
     pet_dict['adoption fee'] = adoption_fee
     pet_dict['health'] = health
+    pet_dict['coat length'] = coat_length
     pet_dict['story'] = story
     pet_dict['shelter name'] = shelter_name
     pet_dict['shelter address'] = shelter_address
     pet_dict['shelter zipcode'] = shelter_zipcode
-    pet_dict['coat length'] = coat_length
+    pet_dict['shelter email'] = shelter_email
 
     writer.writerow(pet_dict.values())
 
